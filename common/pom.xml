@@ -57,6 +57,16 @@
 			<artifactId>jodd-http</artifactId>
 			<version>6.3.0</version>
 		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-server</artifactId>
+			<version>9.4.17.v20190418</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-servlet</artifactId>
+			<version>9.4.17.v20190418</version>
+		</dependency>		
 	</dependencies>    
 
     <build>

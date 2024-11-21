@@ -4,18 +4,18 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.dtcookie.database.Database;
-import com.dtcookie.shop.Product;
 import com.dtcookie.shop.Ports;
+import com.dtcookie.shop.Product;
 import com.dtcookie.util.Http;
 import com.dtcookie.util.Otel;
-import com.sun.net.httpserver.HttpExchange;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -27,10 +27,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Scope;
-import jodd.http.HttpRequest;
-import jodd.http.HttpResponse;
 import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 
 public class FrontendServer {
 	
@@ -49,13 +47,14 @@ public class FrontendServer {
 		Otel.init();
 		log.info("Launching Frontend Server on port " + Ports.FRONTEND_LISTEN_PORT);
 		Http.serve(
+			"order-api-" + System.getenv("GITHUB_USER"),
 			Ports.FRONTEND_LISTEN_PORT,
 			Http.handler("/place-order", FrontendServer::handlePlaceOrder)
 			.add("/purchase-confirmed", FrontendServer::handlePurchaseConfirmed)
 		);		
 	}
 
-	public static String handlePlaceOrder(HttpExchange exchange) throws Exception {
+	public static String handlePlaceOrder(HttpServletRequest request) throws Exception {
 		// log.info("Placing order");
 		Product product = Product.random();
 		String productID = product.getID();
@@ -106,8 +105,8 @@ public class FrontendServer {
 		}		
 	}
 
-	public static String handlePurchaseConfirmed(HttpExchange exchange) throws Exception {
-		String productID = exchange.getRequestHeaders().get("product.id").get(0);
+	public static String handlePurchaseConfirmed(HttpServletRequest request) throws Exception {
+		String productID = request.getHeader("product.id");
 		Product product = Product.getByID(productID);
 		Span span = tracer.spanBuilder("purchase-confirmed").setSpanKind(SpanKind.INTERNAL).startSpan();
 		try (Scope scope = span.makeCurrent()) {

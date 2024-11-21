@@ -2,8 +2,6 @@ package com.dtcookie.shop.backend;
 
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.List;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -12,20 +10,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.dtcookie.database.Database;
+import com.dtcookie.shop.Ports;
 import com.dtcookie.shop.Product;
+import com.dtcookie.util.GETRequest;
 import com.dtcookie.util.Http;
 import com.dtcookie.util.Otel;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.dtcookie.shop.Ports;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
@@ -33,9 +31,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
-import io.opentelemetry.context.propagation.TextMapSetter;
 import io.opentelemetry.semconv.SemanticAttributes;
-import com.dtcookie.util.GETRequest;
 
 public class BackendServer {
 
@@ -43,7 +39,7 @@ public class BackendServer {
 
 	private static OpenTelemetry openTelemetry = GlobalOpenTelemetry.get();
 	private static final Tracer tracer = openTelemetry.getTracer("manual-instrumentation");
-	private static final TextMapGetter<Map<String, List<String>>> getter = Otel.newRequestHeaderGetter();
+	private static final TextMapGetter<HttpServletRequest> getter = Otel.newRequestHeaderGetter();
 
 	private static final ExecutorService executor = Executors.newCachedThreadPool();
 	private static final Timer creditCardFullScanTimer = new Timer(true);
@@ -67,8 +63,8 @@ public class BackendServer {
 		Database.Debug.set(true);
 		log.info("Launching Backend Server");
 		openTelemetry = Otel.init();
-		Http.serve(Ports.CREDIT_CARD_LISTEN_PORT, "/validate-credit-card", BackendServer::handleCreditcards);
-		Http.serve(Ports.INVENTORY_LISTEN_PORT, "/check-inventory", BackendServer::handleInventory);
+		Http.serve("order-backend-credit-cards" + System.getenv("GITHUB_USER"), Ports.CREDIT_CARD_LISTEN_PORT, "/validate-credit-card/*", BackendServer::handleCreditcards);
+		Http.serve("order-backend-inventory" + System.getenv("GITHUB_USER"), Ports.INVENTORY_LISTEN_PORT, "/check-inventory/*", BackendServer::handleInventory);
 	}
 
 	public static UUID process(Product product) throws Exception {
@@ -97,27 +93,25 @@ public class BackendServer {
 		request.send();
 	}
 
-	public static UUID handleCreditcards(HttpExchange exchange) throws Exception {
-		String requestURI = exchange.getRequestURI().toString();
+	public static String handleCreditcards(HttpServletRequest request) throws Exception {
+		String requestURI = request.getRequestURI();
 		String productID = requestURI.substring(requestURI.lastIndexOf("/") + 1);
 
-		Headers headers = exchange.getRequestHeaders();
-		Context ctx = openTelemetry.getPropagators().getTextMapPropagator().extract(Context.current(), headers, getter);
+		Context ctx = openTelemetry.getPropagators().getTextMapPropagator().extract(Context.current(), request, getter);
 
 		try (Scope ctScope = ctx.makeCurrent()) {
-			Span serverSpan = tracer.spanBuilder(exchange.getRequestURI().toString()).setSpanKind(SpanKind.SERVER)
+			Span serverSpan = tracer.spanBuilder(request.getRequestURI()).setSpanKind(SpanKind.SERVER)
 					.startSpan();
 			try (Scope scope = serverSpan.makeCurrent()) {
-				serverSpan.setAttribute(SemanticAttributes.HTTP_REQUEST_METHOD,
-						exchange.getRequestMethod().toUpperCase());
+				serverSpan.setAttribute(SemanticAttributes.HTTP_REQUEST_METHOD,	request.getMethod().toUpperCase());
 				serverSpan.setAttribute(SemanticAttributes.URL_SCHEME, "http");				
 				serverSpan.setAttribute(SemanticAttributes.SERVER_ADDRESS, "order-backend-" + System.getenv("GITHUB_USER") + ":" + Ports.CREDIT_CARD_LISTEN_PORT);
-				serverSpan.setAttribute(SemanticAttributes.URL_PATH, exchange.getRequestURI().toString());
+				serverSpan.setAttribute(SemanticAttributes.URL_PATH, request.getRequestURI());
 
 				UUID result = process(Product.random());
 				serverSpan.setAttribute(SemanticAttributes.HTTP_RESPONSE_STATUS_CODE, 200);
 				executor.submit(Purchase.confirm(productID));
-				return result;
+				return result.toString();
 			} catch (Exception e) {
 				serverSpan.setAttribute(SemanticAttributes.HTTP_RESPONSE_STATUS_CODE, 500);
 				serverSpan.recordException(e);
@@ -130,23 +124,21 @@ public class BackendServer {
 		}
 	}
 
-	public static String handleInventory(HttpExchange exchange) throws Exception {
-		String url = exchange.getRequestURI().toString();
+	public static String handleInventory(HttpServletRequest request) throws Exception {
+		String url = request.getRequestURI();
 		String productName = url.substring(url.lastIndexOf("/"));
 		int quantity = 1;				
 
-		Headers headers = exchange.getRequestHeaders();
-		Context ctx = openTelemetry.getPropagators().getTextMapPropagator().extract(Context.current(), headers, getter);
+		Context ctx = openTelemetry.getPropagators().getTextMapPropagator().extract(Context.current(), request, getter);
 
 		try (Scope ctScope = ctx.makeCurrent()) {
-			Span serverSpan = tracer.spanBuilder(exchange.getRequestURI().toString()).setSpanKind(SpanKind.SERVER)
+			Span serverSpan = tracer.spanBuilder(request.getRequestURI()).setSpanKind(SpanKind.SERVER)
 					.startSpan();
 			try (Scope scope = serverSpan.makeCurrent()) {
-				serverSpan.setAttribute(SemanticAttributes.HTTP_REQUEST_METHOD,
-						exchange.getRequestMethod().toUpperCase());
+				serverSpan.setAttribute(SemanticAttributes.HTTP_REQUEST_METHOD,	request.getMethod().toUpperCase());
 				serverSpan.setAttribute(SemanticAttributes.URL_SCHEME, "http");				
 				serverSpan.setAttribute(SemanticAttributes.SERVER_ADDRESS, "order-backend-" + System.getenv("GITHUB_USER") + ":" + Ports.INVENTORY_LISTEN_PORT);
-				serverSpan.setAttribute(SemanticAttributes.URL_PATH, exchange.getRequestURI().toString());
+				serverSpan.setAttribute(SemanticAttributes.URL_PATH, request.getRequestURI());
 
 				Database.execute("SELECT * FROM products WHERE name = '" + productName + "'");
 

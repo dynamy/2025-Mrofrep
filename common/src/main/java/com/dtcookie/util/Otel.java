@@ -4,10 +4,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
+
+import javax.servlet.http.HttpServletRequest;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -54,29 +55,16 @@ public class Otel {
 		return sdk;
 	}
 
-	public static TextMapGetter<Map<String,List<String>>> newRequestHeaderGetter() {
-    	return new TextMapGetter<Map<String,List<String>>> () {
+	public static TextMapGetter<HttpServletRequest> newRequestHeaderGetter() {
+    	return new TextMapGetter<HttpServletRequest> () {
     	    @Override
-    	    public String get(Map<String,List<String>> carrier, String key) {
-    	    	List<String> value = carrier.get(key);
-    	    	if (value == null) {
-    	    		value = carrier.get(key.toUpperCase());
-    	    	}
-    	    	if (value == null) {
-    	    		value = carrier.get(key.toLowerCase());
-    	    	}
-    	    	if (value == null) {
-    	    		return null;
-    	    	}
-    	    	if (value.isEmpty()) {
-    	    		return null;
-    	    	}    	
-    	        return value.get(0);
+    	    public String get(HttpServletRequest carrier, String key) {
+				return carrier.getHeader(key);
     	    }
     	    
     	    @Override
-    	    public Iterable<String> keys(Map<String,List<String>> carrier) {
-    	        return carrier.keySet();
+    	    public Iterable<String> keys(HttpServletRequest carrier) {
+				return Collections.list(carrier.getHeaderNames());
     	    }
     	};
     }

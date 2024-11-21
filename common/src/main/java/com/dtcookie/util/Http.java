@@ -1,19 +1,17 @@
 package com.dtcookie.util;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
-import com.sun.net.httpserver.HttpExchange;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import jodd.http.HttpRequest;
 import jodd.http.HttpResponse;
@@ -104,79 +102,37 @@ public interface Http {
         }
     };
 
-    public static void serve(int port, final String context, final HttpHandler handler) throws IOException {
-        serve(port, handler(context, handler));
+    public static void serve(String name, int port, final String context, final HttpGetter handler) throws Exception {
+        serve(name, port, handler(context, handler));
     }
 
-    public static void serve(int port, final HttpHandlers handlers) throws IOException {
-        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer
-                .create(new InetSocketAddress("0.0.0.0", port), 0);
-        server.setExecutor(Executors.newCachedThreadPool());
-        for (Map.Entry<String, HttpHandler> entry : handlers.handlers.entrySet()) {
-            com.sun.net.httpserver.HttpContext ctx = server.createContext(entry.getKey());
-            ctx.setHandler(new Handler(entry.getValue()));
+    public static void serve(String name, int port, final HttpHandlers handlers) throws Exception {
+        Server server = new Server(port);
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
+        context.setDisplayName(name);
+        server.setHandler(context);
+
+        for (Map.Entry<String, HttpGetter> entry : handlers.handlers.entrySet()) {
+            System.out.println(">>>>>> " + entry.getKey());
+            context.addServlet(new ServletHolder(new DoGetHandler(entry.getValue())), entry.getKey());
         }
+
         server.start();
     }
 
-    public static class Handler implements com.sun.net.httpserver.HttpHandler {
-        private final HttpHandler delegate;
-
-        private Handler(HttpHandler delegate) {
-            this.delegate = delegate;
-        }
-
-        public void handle(HttpExchange exchange) {
-            // Map<String,String> headers = new HashMap<>();
-            // for (Entry<String, List<String>> entry :
-            // exchange.getRequestHeaders().entrySet()) {
-            // headers.put(entry.getKey(), entry.getValue().get(0));
-            // }
-            int statusCode = 200;
-            Object response = "";
-            try {
-                response = delegate.handle(exchange);
-            } catch (Throwable t) {
-                response = Throwables.toString(t);
-                statusCode = 500;
-            }
-            exchange.getResponseHeaders().putIfAbsent("Content-Type", Collections.singletonList("text/plain"));
-            if (response == null) {
-                response = "";
-            }
-            byte[] responseBytes = response.toString().getBytes();
-            try {
-                exchange.sendResponseHeaders(statusCode, responseBytes.length);
-                Streams.copy(responseBytes, exchange::getResponseBody);
-                exchange.getResponseBody().flush();
-                exchange.getResponseBody().close();
-            } catch (IOException e) {
-                //ignore
-            } finally {
-                exchange.close();
-            }
-        }
-
-    }
-
-    @FunctionalInterface
-    public static interface HttpHandler {
-        Object handle(HttpExchange exchange) throws Exception;        
-    }
-
-    public static HttpHandlers handler(String context, HttpHandler handler) {
+    public static HttpHandlers handler(String context, HttpGetter handler) {
         return new HttpHandlers(context, handler);
     }
 
     public static class HttpHandlers {
         
-        private final Map<String, HttpHandler> handlers = new HashMap<>();
+        private final Map<String, HttpGetter> handlers = new HashMap<>();
 
-        private HttpHandlers(String context, HttpHandler handler) {
+        private HttpHandlers(String context, HttpGetter handler) {
             this.add(context, handler);
         }
 
-        public HttpHandlers add(String context, HttpHandler handler) {
+        public HttpHandlers add(String context, HttpGetter handler) {
             this.handlers.put(context, handler);
             return this;
         }

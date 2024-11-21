@@ -45,7 +45,7 @@ public interface Streams {
 		}
 	}
 	
-	public static void copy(byte[] in, Supplier<OutputStream> provider) throws IOException {
+	public static <O extends OutputStream> void copy(byte[] in, Supplier<O> provider) throws IOException {
 		try (ByteArrayInputStream bin = new ByteArrayInputStream(in)) {
 			copy(in, provider.get());
 		}		
