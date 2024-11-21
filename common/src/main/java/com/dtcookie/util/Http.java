@@ -113,7 +113,6 @@ public interface Http {
         server.setHandler(context);
 
         for (Map.Entry<String, HttpGetter> entry : handlers.handlers.entrySet()) {
-            System.out.println(">>>>>> " + entry.getKey());
             context.addServlet(new ServletHolder(new DoGetHandler(entry.getValue())), entry.getKey());
         }
 
