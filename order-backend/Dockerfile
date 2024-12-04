@@ -28,25 +28,27 @@ ARG GITHUB_USER
 # ENV OTEL_TRACES_EXPORTER=otlp
 # ENV OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
 # ENV OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://opentelemetry-collector:4318/v1/traces
-# ENV OTEL_EXPORTER_OTLP_TRACES_HEADERS=Authorization=Api-Token $OTEL_INGEST_TOKEN
+# ENV OTEL_EXPORTER_OTLP_TRACES_HEADERS=Authorization=Api-Token $DT_API_TOKEN
 
 ENV OTEL_METRICS_EXPORTER=otlp
 ENV OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
 ENV OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://opentelemetry-collector:4318/v1/metrics
 ENV OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=DELTA
-# ENV OTEL_EXPORTER_OTLP_METRICS_HEADERS=Authorization=Api-Token $OTEL_INGEST_TOKEN
+# ENV OTEL_EXPORTER_OTLP_METRICS_HEADERS=Authorization=Api-Token $DT_API_TOKEN
 
 ENV OTEL_LOGS_EXPORTER=otlp
 ENV OTEL_EXPORTER_OTLP_LOGS_PROTOCOL=http/protobuf
 ENV OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://opentelemetry-collector:4318/v1/logs
-# ENV OTEL_EXPORTER_OTLP_LOGS_HEADERS=Authorization=Api-Token $OTEL_INGEST_TOKEN
+# ENV OTEL_EXPORTER_OTLP_LOGS_HEADERS=Authorization=Api-Token $DT_API_TOKEN
 
 WORKDIR /app
 COPY --from=build /app/order-backend/target/order-backend-1.0-SNAPSHOT-all.jar order-backend.jar
 COPY --from=build /app/opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 # COPY opentelemetry-javaagent.jar opentelemetry-javaagent.jar
 
+ENV OTEL_INSTRUMENTATION_JETTY_ENABLED=false
+ENV OTEL_INSTRUMENTATION_SERVLET_ENABLED=false
+
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-javaagent:opentelemetry-javaagent.jar", "-jar", "order-backend.jar"]
-# ENTRYPOINT ["java", "-jar", "backend.jar"]
+ENTRYPOINT ["java", "-jar", "order-backend.jar"]
