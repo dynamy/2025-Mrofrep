@@ -1,9 +1,9 @@
+import logging
 from datetime import datetime
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from otel import ot
-
+tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 """Returns the n-th fibonacci number."""
 def fibonacci(n: int) -> int:
@@ -19,13 +19,13 @@ def fibonacci(n: int) -> int:
     
     return n2 + n1
 
-
 """Attempts to calculate Fibonacci value at the given number"""
 def process(n: int) -> int:
-    with ot.tracer.start_as_current_span("process") as span:
+    with tracer.start_as_current_span("process") as span:
         try:
             f = fibonacci(n)
             return f
         except Exception as e:
+            logging.getLogger().exception("FibNumber=%s",n)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR))
