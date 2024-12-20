@@ -1,9 +1,4 @@
 Flask
-opentelemetry-api
-opentelemetry-exporter-dynatrace-metrics
-opentelemetry-exporter-otlp-proto-http
-opentelemetry-instrumentation-flask
-opentelemetry-instrumentation-requests
-opentelemetry-sdk
-opentelemetry-semantic-conventions
 psutil
+opentelemetry-distro
+opentelemetry-exporter-otlp
