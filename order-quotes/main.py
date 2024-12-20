@@ -1,14 +1,11 @@
 import random
 import requests
+import logging
 from flask import Flask, request, make_response
-from opentelemetry import trace, propagate, context
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 from utils import process
-from otel import ot
 
 app = Flask("Py-Flask-App")
-FlaskInstrumentor().instrument_app(app)
 
 @app.route("/quote", methods=["GET"])
 def quote():
