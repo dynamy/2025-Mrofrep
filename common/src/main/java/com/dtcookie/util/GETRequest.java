@@ -18,16 +18,16 @@ import java.util.Map.Entry;
 public final class GETRequest {
 
 	private final String sURL;
-	private final Map<String,String> headers = new HashMap<>();
-	
+	private final Map<String, String> headers = new HashMap<>();
+
 	public GETRequest(String url) {
 		this.sURL = url;
 	}
-	
-	public final Map<String,String> headers() {
+
+	public final Map<String, String> headers() {
 		return this.headers;
 	}
-	
+
 	public String send() throws IOException {
 		URL url = new URL(this.sURL);
 		int port = url.getPort();
@@ -36,35 +36,62 @@ public final class GETRequest {
 		}
 		String host = url.getHost();
 
-        InetAddress addr = InetAddress.getByName(host);
-        SocketAddress sockaddr = new InetSocketAddress(addr, port);
-        try (Socket socket = new Socket()) {
-            socket.connect(sockaddr, 30000);
-            try (InputStream socketIn = socket.getInputStream()) {
-            	try (InputStreamReader socketIsr = new InputStreamReader(socketIn)) {
-                    try (BufferedReader br = new BufferedReader(socketIsr)) {
-                    	try (OutputStream socketOut = socket.getOutputStream()) {
-                            try (PrintWriter pw = new PrintWriter(socketOut, true)) {
-                                pw.print("GET " + url.getPath() + " HTTP/1.1\r\n");
-                                pw.print("Host: "+ host +"\r\n");
-                                pw.print("Connection: close\r\n");
-                        		for (Entry<String, String> entry : headers.entrySet()) {
-                        			pw.print(entry.getKey() + ": " + entry.getValue() + "\r\n");
-                        		}                                
-                                pw.print("\r\n");
-                                pw.flush();
-                                
-                                String response = "";
-                                String line = null;
-                                while((line = br.readLine())!=null){
-                                	response = response + line + "\n";
-                                }
-                                return response;
-                            }
-                    	}
-                    }
-            	}
-            }
-        }
+		InetAddress addr = InetAddress.getByName(host);
+		SocketAddress sockaddr = new InetSocketAddress(addr, port);
+		try (Socket socket = new Socket()) {
+			socket.connect(sockaddr, 30000);
+			try (InputStream socketIn = socket.getInputStream()) {
+				try (InputStreamReader socketIsr = new InputStreamReader(socketIn)) {
+					try (BufferedReader br = new BufferedReader(socketIsr)) {
+						try (OutputStream socketOut = socket.getOutputStream()) {
+							try (PrintWriter pw = new PrintWriter(socketOut, true)) {
+								pw.print("GET " + url.getPath() + " HTTP/1.1\r\n");
+								pw.print("Host: " + host + "\r\n");
+								pw.print("Connection: close\r\n");
+								for (Entry<String, String> entry : headers.entrySet()) {
+									pw.print(entry.getKey() + ": " + entry.getValue() + "\r\n");
+								}
+								pw.print("\r\n");
+								pw.flush();
+
+								String response = "";
+								String line = null;
+								while ((line = br.readLine()) != null) {
+									response = response + line + "\n";
+								}
+								return responseBody(response);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private static String responseBody(String input) {
+		try {
+			if (input == null) {
+				return null;
+			}
+			String[] lines = input.split("\n");
+
+			boolean elf = false;
+			StringBuilder trailer = new StringBuilder();
+
+			for (String line : lines) {
+				if (line.trim().isEmpty()) {
+					elf = true;
+					continue;
+				}
+
+				if (elf) {
+					trailer.append(line).append("\n");
+				}
+			}
+
+			return elf ? trailer.toString().stripTrailing() : input;
+		} catch (Throwable t) {
+			return input;
+		}
 	}
 }
