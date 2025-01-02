@@ -1,4 +1,4 @@
-## 📌 Configure Credentials
+## Configure Credentials
 
 You will be launching the demo app using GitHub Code Spaces.
 Before we are able to do that, we need to configure two secrets in your GitHub account. They will let the app know where to report monitoring data to and how to authenticate.
